@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>如何构建 AI Agent | arXiv 2601.15153</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg: #0c0c0c;
+            --bg-card: #141414;
+            --bg-card-hover: #1a1a1a;
+            --text: #f5f5f5;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --green: #10b981;
+            --orange: #f59e0b;
+            --pink: #ec4899;
+            --border: rgba(255,255,255,0.08);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Noto Sans SC', 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        /* 背景装饰 */
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(150px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .bg-glow-1 { background: var(--accent); top: -200px; right: -200px; }
+        .bg-glow-2 { background: var(--pink); bottom: -200px; left: -200px; }
+
+        /* 导航 */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(12, 12, 12, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        .nav-logo span { color: var(--accent-light); }
+
+        .nav-links { display: flex; gap: 2rem; }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover { color: var(--text); }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 6rem 2rem 4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-content { max-width: 900px; margin: 0 auto; }
+
+        .hero-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            color: var(--accent-light);
+            margin-bottom: 2rem;
+        }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .hero-title .highlight {
+            background: linear-gradient(135deg, var(--accent-light), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-desc {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-meta {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .hero-meta span { display: flex; align-items: center; gap: 0.5rem; }
+
+        /* Section */
+        .section {
+            padding: 5rem 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-inner { max-width: 1100px; margin: 0 auto; }
+
+        .section-header { margin-bottom: 3rem; }
+
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent-light);
+            margin-bottom: 0.75rem;
+        }
+
+        .section-title {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        /* 问题卡片 */
+        .problem-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .problem-card {
+            padding: 2rem;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+
+        .problem-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255,255,255,0.12);
+            transform: translateY(-4px);
+        }
+
+        .problem-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .problem-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .problem-desc {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+        }
+
+        /* 框架图 */
+        .framework-diagram {
+            background: var(--bg-card);
+            border-radius: 1.5rem;
+            border: 1px solid var(--border);
+            padding: 3rem 2rem;
+            margin-top: 2rem;
+        }
+
+        .framework-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .flow-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 0.75rem;
+        }
+
+        .flow-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            position: relative;
+        }
+
+        .flow-icon::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            background: inherit;
+            filter: blur(20px);
+            opacity: 0.4;
+            z-index: -1;
+        }
+
+        .flow-step:nth-child(1) .flow-icon { background: linear-gradient(135deg, var(--accent), #8b5cf6); }
+        .flow-step:nth-child(3) .flow-icon { background: linear-gradient(135deg, var(--green), #059669); }
+        .flow-step:nth-child(5) .flow-icon { background: linear-gradient(135deg, var(--orange), #d97706); }
+        .flow-step:nth-child(7) .flow-icon { background: linear-gradient(135deg, var(--pink), #db2777); }
+
+        .flow-label { font-size: 0.875rem; font-weight: 500; }
+        .flow-sub { font-size: 0.75rem; color: var(--text-muted); }
+
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+        }
+
+        /* 架构图 */
+        .architecture {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 2rem;
+            align-items: center;
+            margin-top: 3rem;
+        }
+
+        .arch-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .arch-box {
+            padding: 1.25rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .arch-box.highlight {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .arch-box-title {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .arch-box-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .arch-center {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--pink));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+        }
+
+        .arch-center::after {
+            content: '';
+            position: absolute;
+            inset: -20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--pink));
+            filter: blur(40px);
+            opacity: 0.3;
+            z-index: -1;
+        }
+
+        .arch-center-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .arch-center-sub {
+            font-size: 0.7rem;
+            opacity: 0.8;
+        }
+
+        /* 知识类型 */
+        .knowledge-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .knowledge-card {
+            padding: 2rem;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .knowledge-card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .knowledge-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .knowledge-card:nth-child(1) .knowledge-icon { background: linear-gradient(135deg, var(--green), #059669); }
+        .knowledge-card:nth-child(2) .knowledge-icon { background: linear-gradient(135deg, var(--orange), #d97706); }
+
+        .knowledge-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .knowledge-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .knowledge-content {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .knowledge-example {
+            padding: 1rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-left: 3px solid var(--accent);
+        }
+
+        .knowledge-example strong { color: var(--text); }
+
+        /* Agent 特性 */
+        .agent-traits {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .trait-card {
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .trait-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        .trait-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+        .trait-title { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
+        .trait-desc { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* 统计 */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .stat-box {
+            padding: 2rem;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .stat-num {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-light), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label { font-size: 0.875rem; color: var(--text-secondary); }
+
+        /* 结论 */
+        .conclusion {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
+            border-radius: 1.5rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .conclusion-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .conclusion-text {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 1.5rem;
+        }
+
+        .conclusion-link {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: var(--accent);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 100px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .conclusion-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px var(--accent-glow);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+
+        .footer-text { font-size: 0.875rem; color: var(--text-muted); }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .architecture { grid-template-columns: 1fr; }
+            .arch-center { margin: 1rem auto; }
+            .framework-flow { flex-direction: column; }
+            .flow-arrow { transform: rotate(90deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Nav -->
+    <nav class="nav">
+        <div class="nav-logo">arXiv:<span>2601.15153</span></div>
+        <div class="nav-links">
+            <a href="#problem">问题</a>
+            <a href="#framework">框架</a>
+            <a href="#knowledge">知识</a>
+            <a href="#results">结果</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-tag">
+                <span>📄</span>
+                <span>arXiv 2026 · CAIN '26</span>
+            </div>
+            <h1 class="hero-title">
+                如何通过编码人类专家<br>
+                <span class="highlight">领域知识来构建 AI Agent</span>
+            </h1>
+            <p class="hero-desc">
+                一篇来自 Siemens、埃因霍温理工大学等机构的论文，提出了一个系统化的软件工程框架，将专家知识编码到 LLM Agent 中，使非专家也能生成专家级的可视化结果。
+            </p>
+            <div class="hero-meta">
+                <span>👥 Choro Ulan Uulu 等</span>
+                <span>🏢 Siemens AG</span>
+                <span>📅 2026.01</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- 问题 -->
+    <section id="problem" class="section">
+        <div class="section-inner">
+            <div class="section-header">
+                <p class="section-label">The Problem</p>
+                <h2 class="section-title">为什么需要这个框架？</h2>
+            </div>
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon"> bottleneck</div>
+                    <h3 class="problem-title">专家瓶颈</h3>
+                    <p class="problem-desc">关键领域知识集中在少数专家手中，造成组织决策和扩展的瓶颈。</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">❓</div>
+                    <h3 class="problem-title">非专家困境</h3>
+                    <p class="problem-desc">非专家难以创建有效的可视化，导致次优洞察，还要占用专家时间来修正。</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">🔄</div>
+                    <h3 class="problem-title">反复迭代</h3>
+                    <p class="problem-desc">创建有效可视化需要多次尝试，浪费大量时间，且容易放弃探索高级功能。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 框架 -->
+    <section id="framework" class="section">
+        <div class="section-inner">
+            <div class="section-header">
+                <p class="section-label">The Framework</p>
+                <h2 class="section-title">四步知识编码框架</h2>
+            </div>
+            <div class="framework-diagram">
+                <div class="framework-flow">
+                    <div class="flow-step">
+                        <div class="flow-icon">🎤</div>
+                        <span class="flow-label">专家访谈</span>
+                        <span class="flow-sub">提取知识</span>
+                    </div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">
+                        <div class="flow-icon">📝</div>
+                        <span class="flow-label">规则实现</span>
+                        <span class="flow-sub">Python + Prompt</span>
+                    </div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">
+                        <div class="flow-icon">🧪</div>
+                        <span class="flow-label">测试验证</span>
+                        <span class="flow-sub">评估效果</span>
+                    </div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">
+                        <div class="flow-icon">🔄</div>
+                        <span class="flow-label">迭代优化</span>
+                        <span class="flow-sub">持续改进</span>
+                    </div>
+                </div>
+
+                <div class="architecture">
+                    <div class="arch-column">
+                        <div class="arch-box highlight">
+                            <div class="arch-box-title">用户请求</div>
+                            <div class="arch-box-desc">自然语言输入</div>
+                        </div>
+                        <div class="arch-box">
+                            <div class="arch-box-title">请求分类器</div>
+                            <div class="arch-box-desc">智能路由</div>
+                        </div>
+                        <div class="arch-box">
+                            <div class="arch-box-title">专家规则</div>
+                            <div class="arch-box-desc">可执行 Python</div>
+                        </div>
+                    </div>
+                    <div class="arch-center">
+                        <span class="arch-center-label">AI Agent</span>
+                        <span class="arch-center-sub">LLM + RAG</span>
+                    </div>
+                    <div class="arch-column">
+                        <div class="arch-box">
+                            <div class="arch-box-title">RAG 系统</div>
+                            <div class="arch-box-desc">领域代码库</div>
+                        </div>
+                        <div class="arch-box">
+                            <div class="arch-box-title">设计原则</div>
+                            <div class="arch-box-desc">系统提示</div>
+                        </div>
+                        <div class="arch-box highlight">
+                            <div class="arch-box-title">可视化输出</div>
+                            <div class="arch-box-desc">专家级质量</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 知识类型 -->
+    <section id="knowledge" class="section">
+        <div class="section-inner">
+            <div class="section-header">
+                <p class="section-label">Knowledge Types</p>
+                <h2 class="section-title">两种专家知识类型</h2>
+            </div>
+            <div class="knowledge-grid">
+                <div class="knowledge-card">
+                    <div class="knowledge-card-header">
+                        <div class="knowledge-icon">⚙️</div>
+                        <div>
+                            <h3 class="knowledge-title">显式程序规则</h3>
+                            <p class="knowledge-subtitle">Explicit Procedural Rules</p>
+                        </div>
+                    </div>
+                    <p class="knowledge-content">
+                        清晰的 if-then 逻辑，可以直接转换为可执行的 Python 代码。这些规则是算法性的，有明确的输入输出。
+                    </p>
+                    <div class="knowledge-example">
+                        <strong>示例：</strong>收敛性检查规则<br>
+                        "任何分析开始前，先检查目标是否收敛。如果未收敛，提示用户继续优化迭代。"
+                    </div>
+                </div>
+                <div class="knowledge-card">
+                    <div class="knowledge-card-header">
+                        <div class="knowledge-icon">🎨</div>
+                        <div>
+                            <h3 class="knowledge-title">隐式设计原则</h3>
+                            <p class="knowledge-subtitle">Tacit Design Principles</p>
+                        </div>
+                    </div>
+                    <p class="knowledge-content">
+                        基于经验和判断的上下文知识，无法简化为简单规则。需要通过提示工程或检索机制整合到 LLM 的推理过程中。
+                    </p>
+                    <div class="knowledge-example">
+                        <strong>示例：</strong>可视化编码原则<br>
+                        "历史图应使用虚线表示未收敛变量，实线表示已收敛变量，以直观传达收敛状态。"
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Agent 特性 -->
+    <section class="section">
+        <div class="section-inner">
+            <div class="section-header">
+                <p class="section-label">Agent Properties</p>
+                <h2 class="section-title">AI Agent 的四大特性</h2>
+            </div>
+            <div class="agent-traits">
+                <div class="trait-card">
+                    <div class="trait-icon">🤖</div>
+                    <h3 class="trait-title">自主性</h3>
+                    <p class="trait-desc">Autonomy<br>提示后独立运行</p>
+                </div>
+                <div class="trait-card">
+                    <div class="trait-icon">⚡</div>
+                    <h3 class="trait-title">反应性</h3>
+                    <p class="trait-desc">Reactivity<br>响应用户请求</p>
+                </div>
+                <div class="trait-card">
+                    <div class="trait-icon">🎯</div>
+                    <h3 class="trait-title">主动性</h3>
+                    <p class="trait-desc">Proactivity<br>自动应用专家规则</p>
+                </div>
+                <div class="trait-card">
+                    <div class="trait-icon">💬</div>
+                    <h3 class="trait-title">社交性</h3>
+                    <p class="trait-desc">Social Ability<br>自然语言交互</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 结果 -->
+    <section id="results" class="section">
+        <div class="section-inner">
+            <div class="section-header">
+                <p class="section-label">Results</p>
+                <h2 class="section-title">验证结果</h2>
+            </div>
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-num">206%</div>
+                    <div class="stat-label">输出质量提升</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num">12</div>
+                    <div class="stat-label">评估专家</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num">5</div>
+                    <div class="stat-label">跨领域场景</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num">3</div>
+                    <div class="stat-label">工程领域</div>
+                </div>
+            </div>
+            <p style="margin-top: 2rem; color: var(--text-secondary); text-align: center; max-width: 700px; margin-left: auto; margin-right: auto;">
+                在电化学（电池设计）、电磁（电机优化）、机械（结构分析）三个不同物理领域验证了框架的通用性。非专家使用该系统生成的可视化达到了专家级评分（Mode=3），而基线系统在 4/5 场景中评分仅为 0。
+            </p>
+        </div>
+    </section>
+
+    <!-- 结论 -->
+    <section class="section">
+        <div class="section-inner">
+            <div class="conclusion">
+                <h2 class="conclusion-title">核心贡献</h2>
+                <p class="conclusion-text">
+                    该论文证明了：通过系统化地捕获和编码专家知识，可以让非专家仅通过简单提示就生成专家级质量的输出，从而民主化领域知识，让专家从重复性指导工作中解放出来。
+                </p>
+                <a href="https://arxiv.org/abs/2601.15153" class="conclusion-link" target="_blank">阅读原论文 →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p class="footer-text">Wilson · AI Agent 知识库 · 2026</p>
+    </footer>
+</body>
+</html>
